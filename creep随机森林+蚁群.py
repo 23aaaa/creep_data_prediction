@@ -19,7 +19,7 @@ scaler = MinMaxScaler()
 X_scaled = scaler.fit_transform(X)
 
 # 将数据集拆分为训练集和测试集
-X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.15, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.20, random_state=42)
 
 # 定义 RandomForestRegressor 评估函数
 def evaluate_rf(params):
