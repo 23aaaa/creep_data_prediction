@@ -19,13 +19,14 @@ from sklearn.preprocessing import MinMaxScaler
 
 # git remote add origin https://github.com/23aaaa/creep-data-prediction.git
 
+
 # 固定随机种子
 random.seed(42)
 tf.random.set_seed(42)
 os.environ['TF_DETERMINISTIC_OPS'] = '1'
 os.environ['TF_CUDNN_DETERMINISTIC'] = '1'
 
-@st.cache_data
+@st.cache
 def preprocess_data(df):
     X = df.drop('y', axis=1).values
     y = df['y'].values
