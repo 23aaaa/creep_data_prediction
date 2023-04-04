@@ -3,9 +3,8 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 import os
+import xgboost as xgb
 import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import mean_absolute_error
 import seaborn as sns
 import random
 from sklearn.model_selection import train_test_split
@@ -15,7 +14,6 @@ from tensorflow.keras.layers import Conv1D, MaxPooling1D, Dropout, Flatten, Dens
 from tensorflow.keras.callbacks import EarlyStopping
 from sklearn.preprocessing import MinMaxScaler
 
-# streamlit run D:\PycharmProjects\pythonProject1\网页计算器\app.py
 
 # git remote add origin https://github.com/23aaaa/creep-data-prediction.git
 
@@ -39,24 +37,16 @@ def preprocess_data(df):
     return X, y, scaler_X, scaler_y
 
 @st.cache(allow_output_mutation=True)
-def train_model(X_train, y_train, epochs, batch_size):
-    model = Sequential()
-    model.add(Conv1D(filters=91, kernel_size=3, activation='relu', input_shape=(X_train.shape[1], 1)))
-    model.add(MaxPooling1D(pool_size=2))
-    model.add(Dropout(0.2))
-    model.add(Flatten())
-    model.add(Dense(100, activation='relu'))
-    model.add(Dense(1, activation='linear'))
+def train_xgb_model(X_train, y_train, num_round, early_stopping_rounds):
+    dtrain = xgb.DMatrix(X_train, label=y_train)
+    param = {'max_depth': 6,
+             'eta': 0.1,
+             'objective': 'reg:squarederror',
+             'eval_metric': 'rmse'}
+    eval_list = [(dtrain, 'train')]
+    bst = xgb.train(param, dtrain, num_round, eval_list, early_stopping_rounds=early_stopping_rounds, verbose_eval=False)
+    return bst
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001712)
-    model.compile(loss='mean_squared_error', optimizer=optimizer)
-
-    early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
-    model.fit(X_train.reshape(X_train.shape[0], X_train.shape[1], 1), y_train, epochs=epochs, batch_size=batch_size,
-              verbose=1, validation_split=0.1, callbacks=[early_stopping])
-    history = model.fit(X_train.reshape(X_train.shape[0], X_train.shape[1], 1), y_train, epochs=epochs, batch_size=batch_size,
-              verbose=1, validation_split=0.1, callbacks=[early_stopping])
-    return model, history
 
 
 
@@ -77,15 +67,14 @@ if uploaded_file is not None:
     batch_size = 32
 
     if st.button("训练模型"):
-        model, history = train_model(X_train, y_train, epochs, batch_size)
+        bst = train_xgb_model(X_train, y_train, num_round=1000, early_stopping_rounds=10)
 
         # 数据分布子标题
         st.subheader("数据分布")
         sns.pairplot(df)
         st.pyplot()
 
-        y_pred = scaler_y.inverse_transform(
-            model.predict(X_test.reshape(X_test.shape[0], X_test.shape[1], 1)).reshape(-1, 1)).ravel()
+        y_pred = scaler_y.inverse_transform(bst.predict(xgb.DMatrix(X_test))).ravel()
         y_test = scaler_y.inverse_transform(y_test.reshape(-1, 1)).ravel()
 
         # 预测结果子标题
@@ -125,16 +114,6 @@ if uploaded_file is not None:
 
         # 模型性能子标题
         st.subheader("模型性能")
-        st.write("R-squared: {:.6f}".format(r2))
-        st.write("Mean Squared Error: {:.6f}".format(mse))
-        st.write("Mean Absolute Error: {:.6f}".format(mae))
-
-        st.subheader("训练过程")
-        fig5, ax5 = plt.subplots()
-        ax5.plot(history.history['loss'], label='Training Loss')
-        ax5.plot(history.history['val_loss'], label='Validation Loss')
-        ax5.set_xlabel('Epoch')
-        ax5.set_ylabel('Loss')
-        ax5.set_title('Training Loss vs Epochs')
-        ax5.legend()
-        st.pyplot(fig5)
+        st.write("R-squared score:", r2)
+        st.write("Mean squared error:", mse)
+        st.write("Mean absolute error:", mae)
